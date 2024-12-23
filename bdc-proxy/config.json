@@ -1,0 +1,6 @@
+{
+    "WS_URL": "http://host.docker.internal:8090",
+    "API_URL": "http://host.docker.internal:8090",
+    "UI_URL": "http://host.docker.internal:3000",
+    "BASE_URL": "https://localhost"
+}

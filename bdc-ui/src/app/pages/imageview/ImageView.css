@@ -1,0 +1,31 @@
+.Inspection {
+    text-align: left;
+    margin: 10px;
+  }
+
+Grid {
+  margin:2px;
+}
+
+form {
+  margin: 10px;
+}
+
+.saveButton {
+  margin-top: 10px;
+  margin-left: 5px;
+}
+
+/*
+img.roll {
+    max-height:100px;
+    max-width:200px;
+    height:auto;
+    width:auto;
+}
+*/
+ 
+.active {
+  backgroundColor: blue;
+}
+  

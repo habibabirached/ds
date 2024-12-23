@@ -1,0 +1,121 @@
+
+
+form {
+  margin: 10px;
+}
+
+.saveButton {
+  margin-top: 10px;
+  margin-left: 5px;
+}
+  
+.navButton{
+  width:120px !important;
+  height:35px;
+  margin:0 !important;
+  margin-left:10px !important;
+}
+
+.findingButton{
+  height:35px;
+  margin:0 !important;
+  margin-left:10px !important;
+}
+
+.saveButton{
+  width:150px !important;
+  height:35px;
+  margin:0 !important;
+  margin-left:10px !important;
+  margin-right:20px !important;
+  background-color: #439297;
+}
+ 
+.buttonContainer
+{
+  margin-left: 0!important;
+  margin-top: 10px !important;
+}  
+
+.indicatorReviewTitle{
+  margin-bottom: 20px;
+  margin-left:12px;
+}
+
+.inputContainer{
+  margin-top: 20px!important;
+}
+
+.processMap{
+  margin-top:40px !important;
+  width:1000px;
+  
+}
+
+.backButton{
+  width:120px;
+  height:30px;
+  outline: 1px solid seagreen;
+  border-radius: 5px;
+  cursor: pointer;
+  color:seagreen;
+  margin-bottom: 10px;
+}
+
+.imageButton{
+  margin-left:20px!important;
+}
+
+.formField{
+  width:170px;
+}
+
+td div{
+  align-content: left !important;
+  width: 300px !important;
+}
+
+td p{
+  align-content: left !important;
+  width:300px !important;
+  margin:0 !important;
+  padding-left: 20px!important;
+}
+
+.pnlm-container{
+  margin-left: 20px!important;
+}
+
+.drop-zone {
+  border: 2px dashed #999;
+  border-radius: 5px;
+  padding: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  height: 200px;
+  margin: auto;
+  background-color: #f9f9f9;
+  width:600px;
+  height:600px;
+}
+
+.drop-zone img {
+  max-width: 100%;
+  height: auto;
+  object-fit: cover;
+}
+
+.imageContainer{
+  width: 1450px !important;
+}
+
+.defectImage{
+  width:700px;
+}
+
+.expandButton{
+  padding-left: 15px;
+}

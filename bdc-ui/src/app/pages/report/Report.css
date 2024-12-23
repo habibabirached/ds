@@ -1,0 +1,28 @@
+.report-container {
+  padding: 20px;
+}
+
+.report-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.back-icon {
+  font-size: 30px;
+  cursor: pointer;
+}
+
+.report-title {
+  font-size: 25px;
+  margin-left: 10px;
+}
+
+.loading-backdrop {
+  color: #fff;
+  z-index: 1300;
+}
+
+.loading-text {
+  margin-left: 10px;
+}

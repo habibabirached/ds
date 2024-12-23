@@ -1,0 +1,184 @@
+version: "3"
+
+# virtual networks
+networks:
+  bdc_network:    
+    driver: bridge
+  jenkins_network:
+    driver: bridge
+
+services:
+
+  # We do this to extend jenkins/jenkis:lts with more packages e.g. certificates
+  # Also remember to STOP MyAppsAnywhere3 so Jenkins can access https sites without proxy
+  # Also change the jenkins plugin repo url to use http instead of https
+  # install skip-certificate-check plugin
+
+  bdc-jenkins:
+    image: dtr.research.ge.com/blade_digital_certificate/bdc-jenkins:latest
+    build: ./bdc-jenkins
+    restart: always
+    privileged: true
+    user: root
+    #user: "${UID}:${GID}" #from .env file
+    ports:
+      - "9095:8080"  # external: internal
+      #- "50000:50000"
+    environment:
+      - HTTPS_PROXY=${HTTPS_PROXY}
+      - HTTP_PROXY=${HTTP_PROXY}
+      - NO_PROXY=${NO_PROXY} # from .env file
+      - https_proxy=${HTTPS_PROXY}
+      - http_proxy=${HTTP_PROXY}
+      - no_proxy=${NO_PROXY} # from .env file
+      - JAVA_OPTS=-Dhttp.proxyHost=${PROXY_HOST} -Dhttp.proxyPort=80 -Dhttps.proxyHost=${PROXY_HOST} -Dhttps.proxyPort=80 -Dhttps.proxyPort=8080 -Dhttp.nonProxyHosts=${NO_PROXY} -Dhttps.proxySet=true -Dhttp.proxySet=true  -Dcom.sun.net.ssl.checkRevocation=false
+    group_add:
+      - '0' # add jenkins user to the root group 0 so it can access the docker daemon
+    networks:
+      jenkins_network: # run jeknins in its own netwrok so we dont have port conflict?
+        aliases:
+          - bdc_jenkins
+    volumes:
+      - "jenkins_home:/var/jenkins_home:rw"
+      - /var/run/docker.sock:/var/run/docker.sock # so we can use docker compose to drive local daemon
+      #- /usr/local/bin/docker:/usr/local/bin/docker # only when host OS is also ubuntu
+      - /no_backup/BladeDigitalCertificate:/app:rw # local folder is mounted in jenkins container /app folder
+
+  bdc-ui:
+    image: dtr.research.ge.com/blade_digital_certificate/bdc-ui:latest
+    build: ./bdc-ui
+    environment:
+      - HTTPS_PROXY="http://proxy.research.ge.com:80"
+      - HTTP_PROXY="http://proxy.research.ge.com:80"
+      - NO_PROXY="localhost,127.0.0.1,.ge.com,.build.ge.com,github.build.ge.com"
+      - https_proxy=${HTTPS_PROXY}
+      - http_proxy=${HTTP_PROXY}
+      - no_proxy=${NO_PROXY} # from .env file
+      #- SERVER_HOSTNAME=vrn1masda.crd.ge.com
+      - SERVER_HOSTNAME=10.178.15.156
+    ports:
+      - "3000:3000"
+    restart: always
+    # dns:
+    #   - 1.1.1.1
+    #   - 1.0.0.1
+    networks:
+      bdc_network:
+        aliases:
+          - bdc_ui
+    depends_on:
+      - bdc-srv
+    volumes:
+      - "./bdc-ui/public:/app/public" 
+      - "./bdc-ui/src:/app/src"
+
+  bdc-measurement:
+    image: dtr.research.ge.com/blade_digital_certificate/bdc-measurement:latest
+    build: 
+      context: ./bdc-measurement
+      dockerfile: docker/Dockerfile
+    environment:
+      - https_proxy=${HTTPS_PROXY}
+      - http_proxy=${HTTP_PROXY}
+      - no_proxy=${NO_PROXY} # from .env file
+    ports:
+      - "8001:8001"
+    restart: always
+    networks:
+      bdc_network:
+        aliases:
+          - bdc_measurement
+    volumes:
+      - "./bdc-measurement:/app"
+
+
+  bdc-srv:
+    image: dtr.research.ge.com/blade_digital_certificate/bdc-srv:latest
+    build: ./bdc-srv
+    environment:
+      - https_proxy=${HTTPS_PROXY}
+      - http_proxy=${HTTP_PROXY}
+      - no_proxy=${NO_PROXY} # from .env file
+      - DATABASE_HOSTNAME=10.178.15.156
+      - DATABASE_USERNAME=bdc
+      - DATABASE_PASSWORD=bdc
+      - DATABASE_PORT=5436
+      - MEASUREMENT_HOSTNAME=10.178.15.156
+      - MEASUREMENT_PORT=8001
+      - SAVE_FILES_TO_DB=True
+      #- SERVER_HOSTNAME=vrn1masda.crd.ge.com
+      #- SERVER_HOSTNAME=10.178.15.156
+    ports:
+      - "8090:88"
+      - "5679:5679" # debug port
+    # dns:
+    #   - 1.1.1.1
+    #   - 1.0.0.1
+    restart: always
+    networks:
+      bdc_network:
+        aliases:
+          - bdc_server
+    depends_on:
+      - bdc-db
+      - bdc-measurement
+    volumes:
+      - "./bdc-srv/src:/app/src"
+
+  bdc-db:
+    image: dtr.research.ge.com/blade_digital_certificate/bdc-db:latest
+    build: ./bdc-db
+    ports:
+      - "5436:5436"  # network_mode:host
+    restart: always
+    networks:
+      bdc_network:
+        aliases:
+          - bdc_db
+    environment:
+      POSTGRES_USER: "bdc"
+      POSTGRES_PASSWORD: "bdc"
+      POSTGRES_DB: "bdc"
+    volumes:
+      - "db_data:/var/lib/postgresql/data" 
+    command: -p 5436
+
+
+  # # Back up the database db_data volume to local folder ./local_backups
+  # backup_db:
+  #   # In production, it is advised to lock your image tag to a proper
+  #   # release version instead of using `latest`.
+  #   # Check https://github.com/offen/docker-volume-backup/releases
+  #   # for a list of available releases.
+  #   image: offen/docker-volume-backup:latest
+  #   #restart: always
+  #   #env_file: ./backup.env # see below for configuration reference
+  #   environment:
+  #     BACKUP_CRON_EXPRESSION: "0 3 * * *" # every day at 3 AM UTC
+  #     BACKUP_FILENAME: bladedigitalcertificate_db_data-%Y-%m-%dT%H-%M-%S.tar.gz
+  #     BACKUP_LATEST_SYMLINK: bladedigitalcertificate_db_data-latest.tar.gz
+  #     BACKUP_RETENTION_DAYS: 7
+  #   volumes:
+  #     - db_data:/backup/db_data:ro
+  #     # Mounting the Docker socket allows the script to stop and restart
+  #     # the container during backup and to access the container labels to
+  #     # specify custom commands. You can omit this if you don't want to
+  #     # stop the container or run custom commands. In case you need to
+  #     # proxy the socket, you can also provide a location by setting
+  #     # `DOCKER_HOST` in the container
+  #     - /var/run/docker.sock:/var/run/docker.sock:ro
+  #     # If you mount a local directory or volume to `/archive` a local
+  #     # copy of the backup will be stored there. You can override the
+  #     # location inside of the container by setting `BACKUP_ARCHIVE`.
+  #     # You can omit this if you do not want to keep local backups.
+  #     # - ./local_backups:/archive
+  #     - ./local_backups:/archive
+  #     # Use Jenny's disk as temp during backup creation so we dont run out of disk space
+  #     - /home/liuya/tmp:/tmp
+
+
+# data volumes
+volumes:
+  db_data: {}
+  jenkins_home: {}
+

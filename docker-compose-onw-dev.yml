@@ -1,0 +1,240 @@
+
+
+# virtual networks
+networks:
+  bdc_network:    
+    driver: bridge
+  # jenkins_network:
+  #   driver: bridge
+
+services:
+
+  # We do this to extend jenkins/jenkis:lts with more packages e.g. certificates
+  # Also remember to STOP MyAppsAnywhere3 so Jenkins can access https sites without proxy
+  # Also change the jenkins plugin repo url to use http instead of https
+  # install skip-certificate-check plugin
+
+  # bdc-jenkins:
+  #   image: dtr.research.ge.com/blade_digital_certificate/bdc-jenkins:latest
+  #   build: ./bdc-jenkins
+  #   restart: always
+  #   privileged: true
+  #   user: root
+  #   #user: "${UID}:${GID}" #from .env file
+  #   ports:
+  #     - "9095:8080"  # external: internal
+  #     #- "50000:50000"
+  #   # environment:
+  #   #   - HTTPS_PROXY=${HTTPS_PROXY}
+  #   #   - HTTP_PROXY=${HTTP_PROXY}
+  #   #   - NO_PROXY=${NO_PROXY} # from .env file
+  #   #   - https_proxy=${HTTPS_PROXY}
+  #   #   - http_proxy=${HTTP_PROXY}
+  #   #   - no_proxy=${NO_PROXY} # from .env file
+  #   #   - JAVA_OPTS=-Dhttp.proxyHost=${PROXY_HOST} -Dhttp.proxyPort=80 -Dhttps.proxyHost=${PROXY_HOST} -Dhttps.proxyPort=80 -Dhttps.proxyPort=8080 -Dhttp.nonProxyHosts=${NO_PROXY} -Dhttps.proxySet=true -Dhttp.proxySet=true  -Dcom.sun.net.ssl.checkRevocation=false
+  #   group_add:
+  #     - '0' # add jenkins user to the root group 0 so it can access the docker daemon
+  #   networks:
+  #     jenkins_network: # run jeknins in its own netwrok so we dont have port conflict?
+  #       aliases:
+  #         - bdc_jenkins
+  #   volumes:
+  #     - "jenkins_home:/var/jenkins_home:rw"
+  #     - /var/run/docker.sock:/var/run/docker.sock # so we can use docker compose to drive local daemon
+  #     #- /usr/local/bin/docker:/usr/local/bin/docker # only when host OS is also ubuntu
+  #     - .:/app:rw # local folder is mounted in jenkins container /app folder
+
+ 
+  # We do not need the reverse oauth proxy anymore. 
+  # We are now running apache + https + OIDC in the AWS instance itself
+  # apache is redirecting all calls to http://localhost:3000
+  # sso information is passed in the headers
+
+  # bdc-proxy:
+  #   image: dtr.research.ge.com/reninspect/reninspect-proxy2:latest
+  #   build: 
+  #     context: ./bdc-proxy
+  #     dockerfile: Dockerfile
+  #   environment:
+  #     - https_proxy=${HTTPS_PROXY}
+  #     - http_proxy=${HTTP_PROXY}
+  #     - no_proxy=${NO_PROXY} # from .env file
+  #     - REQUIRE_AUTHENTICATION=false # turn off this once we get the certificates
+  #   ports:
+  #     - "80:8080" # external: internal
+  #     - "443:443"
+  #   depends_on:
+  #     - bdc-ui
+  #     - bdc-srv
+  #   networks:
+  #     bdc_network:
+  #       aliases:
+  #         - bdc_proxy
+  #   volumes:
+  #     #- "./bdc-proxy/src:/app/src"
+  #     - "./bdc-proxy/config_prod.json:/app/config.json" # overwrites default configuration
+
+  bdc-cicd:
+    image: dtr.research.ge.com/blade_digital_certificate/bdc-cicd:latest
+    build: 
+      context: ./bdc-cicd
+      dockerfile: Dockerfile.aws
+    restart: always
+    environment:
+      - https_proxy=${HTTPS_PROXY}
+      - http_proxy=${HTTP_PROXY}
+      - no_proxy=${NO_PROXY} # from .env file
+    networks:
+      bdc_network:
+        aliases:
+          - bdc_cicd
+    volumes:
+      - "~/.ssh:/root/.ssh"
+      - "./:/app"
+      - "./poll-git.sh:/app/command.sh"
+
+  bdc-ui:
+    image: dtr.research.ge.com/blade_digital_certificate/bdc-ui:latest
+    build: 
+      context: ./bdc-ui
+      dockerfile: Dockerfile.aws
+    environment:
+      # - HTTPS_PROXY=${HTTPS_PROXY}
+      # - HTTP_PROXY=${HTTP_PROXY}
+      # - NO_PROXY=${NO_PROXY} # from .env file
+      #- SERVER_HOSTNAME=vrn1masda.crd.ge.com
+      - SERVER_HOSTNAME=10.232.225.253
+    ports:
+      - "3000:3000"
+    restart: always
+    # dns:
+    #   - 1.1.1.1
+    #   - 1.0.0.1
+    networks:
+      bdc_network:
+        aliases:
+          - bdc_ui
+    depends_on:
+      - bdc-srv
+    volumes:
+      - "./bdc-ui/public:/app/public" 
+      - "./bdc-ui/src:/app/src" 
+
+  bdc-measurement:
+    image: dtr.research.ge.com/blade_digital_certificate/bdc-measurement:latest
+    build: 
+      context: ./bdc-measurement
+      dockerfile: docker/Dockerfile.aws
+    # environment:
+    #   - https_proxy=${HTTPS_PROXY}
+    #   - http_proxy=${HTTP_PROXY}
+    #   - no_proxy=${NO_PROXY} # from .env file
+    ports:
+      - "8001:8001"
+    restart: always
+    networks:
+      bdc_network:
+        aliases:
+          - bdc_measurement
+    volumes:
+      - "./bdc-measurement:/app"
+    
+
+  bdc-srv:
+    image: dtr.research.ge.com/blade_digital_certificate/bdc-srv:latest
+    build: 
+      context: ./bdc-srv
+      dockerfile: Dockerfile.aws
+    environment:
+      # - https_proxy=${HTTPS_PROXY}
+      # - http_proxy=${HTTP_PROXY}
+      # - no_proxy=${NO_PROXY} # from .env file
+      #- SERVER_HOSTNAME=vrn1masda.crd.ge.com
+      - DATABASE_HOSTNAME=bdc_db
+      - DATABASE_USERNAME=bdc
+      - DATABASE_PASSWORD=bdc
+      - DATABASE_PORT=5436
+      - MEASUREMENT_HOSTNAME=bdc_measurement
+      - S3_ACCESS_HOSTNAME=bdc_s3_access
+      - SAVE_FILES_TO_DB=False
+      - AWS_REGION=us-east-1
+      - S3_BUCKET_NAME=renewables-uai3031357-dna-ds-dev
+      - S3_BASE_FOLDER=blade_digital_certificate/cv-pipeline-input/
+      - KMS_KEY_ID=arn:aws:kms:us-east-1:164506192075:key/9b480dc5-573b-43cc-bc74-18f63f1fda60
+      - LOGOUT_URL=https://ssologin.ssogen2.corporate.ge.com/logoff/logoff.jsp?referrer=https://digitalhealthrecord-dbc.dev.gevernova.net/
+      - SMTP_SERVER=e2ksmtp01.e2k.ad.ge.com
+      - SMTP_PORT=25
+      - COMM_EMAIL_ID=dbc_dev_communications@ge.com
+      - SERVICE_NOW_URL=https://stage.api.ge.com/digital/servicenowqa/v1
+      - SN_CLIENT_ID=uDFlG9opJSnCAeVil5afD2AyUcZn0VKGh9uQFkyDxs4XeUXl
+      - SN_CLIENT_SECRET=VpNwR2dP7NSM52REAglkwr3S4RygIVAxON7ERXksQc5XH4G2ieXkgATm5XwUPGTd
+      - OAUTH_URL=https://fssfed.stage.ge.com/fss/as/token.oauth2      
+    ports:
+      - "8090:88"
+      - "5679:5679" # debug port
+    # dns:
+    #   - 1.1.1.1
+    #   - 1.0.0.1
+    restart: always
+    networks:
+      bdc_network:
+        aliases:
+          - bdc_srv
+    depends_on:
+      - bdc-db
+      - bdc-s3-access
+    volumes:
+      - "shared_volume:/app/shared" 
+      - "./bdc-srv/src:/app/src"
+
+
+  bdc-s3-access:
+    image: dtr.research.ge.com/blade_digital_certificate/bdc-s3-access:latest
+    build: 
+      context: ./bdc-s3-access
+      dockerfile: Dockerfile.aws
+    restart: always  # automatically restart with docker daemon
+    # this config now comes from the s3_connection_info.json mounted as a volume below
+    #environment:
+      # - https_proxy=${HTTPS_PROXY}
+      # - http_proxy=${HTTP_PROXY}
+      # - no_proxy=${NO_PROXY} # from .env file
+      # - S3_BUCKET=renewables-uai3031357-dna-ds-dev
+      # - S3_KMS_KEY_NAME=arn:aws:kms:us-east-1:164506192075:key/9b480dc5-573b-43cc-bc74-18f63f1fda60
+      # - S3_BUCKET_DIRECTORY=blade_digital_certificate/
+    ports:
+      - "9090:9090" 
+    networks:
+      bdc_network:
+        aliases:
+          - bdc_s3_access
+    volumes:
+      - "shared_volume:/app/shared" # so it can share files with bdc-srv
+      - "./bdc-s3-access/src:/app/src"
+      - "./bdc-s3-access/s3_connection_info_dev.json:/app/s3_connection_info.json"
+
+
+  bdc-db:
+    image: dtr.research.ge.com/blade_digital_certificate/bdc-db:latest
+    build: ./bdc-db
+    ports:
+      - "5436:5436"  # network_mode:host
+    restart: always
+    networks:
+      bdc_network:
+        aliases:
+          - bdc_db
+    environment:
+      POSTGRES_USER: "bdc"
+      POSTGRES_PASSWORD: "bdc"
+      POSTGRES_DB: "bdc"
+    volumes:
+      - "db_data:/var/lib/postgresql/data" 
+    command: -p 5436
+
+# data volumes
+volumes:
+  shared_volume: {}
+  db_data: {} # so we can store the DB
+  #jenkins_home: {} # so jenkins can save configurations
+

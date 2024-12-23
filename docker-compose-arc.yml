@@ -1,0 +1,157 @@
+
+
+# virtual networks
+networks:
+  bdc_network:    
+    driver: bridge
+  # jenkins_network:
+  #   driver: bridge
+
+services:
+
+  # We do this to extend jenkins/jenkis:lts with more packages e.g. certificates
+  # Also remember to STOP MyAppsAnywhere3 so Jenkins can access https sites without proxy
+  # Also change the jenkins plugin repo url to use http instead of https
+  # install skip-certificate-check plugin
+
+  # bdc-jenkins:
+  #   image: dtr.research.ge.com/blade_digital_certificate/bdc-jenkins:latest
+  #   build: ./bdc-jenkins
+  #   restart: always
+  #   privileged: true
+  #   user: root
+  #   #user: "${UID}:${GID}" #from .env file
+  #   ports:
+  #     - "9095:8080"  # external: internal
+  #     #- "50000:50000"
+  #   # environment:
+  #   #   - HTTPS_PROXY=${HTTPS_PROXY}
+  #   #   - HTTP_PROXY=${HTTP_PROXY}
+  #   #   - NO_PROXY=${NO_PROXY} # from .env file
+  #   #   - https_proxy=${HTTPS_PROXY}
+  #   #   - http_proxy=${HTTP_PROXY}
+  #   #   - no_proxy=${NO_PROXY} # from .env file
+  #   #   - JAVA_OPTS=-Dhttp.proxyHost=${PROXY_HOST} -Dhttp.proxyPort=80 -Dhttps.proxyHost=${PROXY_HOST} -Dhttps.proxyPort=80 -Dhttps.proxyPort=8080 -Dhttp.nonProxyHosts=${NO_PROXY} -Dhttps.proxySet=true -Dhttp.proxySet=true  -Dcom.sun.net.ssl.checkRevocation=false
+  #   group_add:
+  #     - '0' # add jenkins user to the root group 0 so it can access the docker daemon
+  #   networks:
+  #     jenkins_network: # run jeknins in its own netwrok so we dont have port conflict?
+  #       aliases:
+  #         - bdc_jenkins
+  #   volumes:
+  #     - "jenkins_home:/var/jenkins_home:rw"
+  #     - /var/run/docker.sock:/var/run/docker.sock # so we can use docker compose to drive local daemon
+  #     #- /usr/local/bin/docker:/usr/local/bin/docker # only when host OS is also ubuntu
+  #     - .:/app:rw # local folder is mounted in jenkins container /app folder
+
+ 
+  # We do not need the reverse oauth proxy anymore. 
+  # We are now running apache + https + OIDC in the AWS instance itself
+  # apache is redirecting all calls to http://localhost:3000
+  # sso information is passed in the headers
+
+  # bdc-proxy:
+  #   image: dtr.research.ge.com/reninspect/reninspect-proxy2:latest
+  #   build: 
+  #     context: ./bdc-proxy
+  #     dockerfile: Dockerfile
+  #   environment:
+  #     - https_proxy=${HTTPS_PROXY}
+  #     - http_proxy=${HTTP_PROXY}
+  #     - no_proxy=${NO_PROXY} # from .env file
+  #     - REQUIRE_AUTHENTICATION=false # turn off this once we get the certificates
+  #   ports:
+  #     - "80:8080" # external: internal
+  #     - "443:443"
+  #   depends_on:
+  #     - bdc-ui
+  #     - bdc-srv
+  #   networks:
+  #     bdc_network:
+  #       aliases:
+  #         - bdc_proxy
+  #   volumes:
+  #     #- "./bdc-proxy/src:/app/src"
+  #     - "./bdc-proxy/config_prod.json:/app/config.json" # overwrites default configuration
+
+  bdc-ui:
+    image: dtr.research.ge.com/blade_digital_certificate/bdc-ui:latest
+    build: 
+      context: ./bdc-ui
+      dockerfile: Dockerfile.aws
+    environment:
+      # - HTTPS_PROXY=${HTTPS_PROXY}
+      # - HTTP_PROXY=${HTTP_PROXY}
+      # - NO_PROXY=${NO_PROXY} # from .env file
+      #- SERVER_HOSTNAME=vrn1masda.crd.ge.com
+      - SERVER_HOSTNAME=10.202.252.71
+    ports:
+      - "3000:3000"
+    restart: always
+    # dns:
+    #   - 1.1.1.1
+    #   - 1.0.0.1
+    networks:
+      bdc_network:
+        aliases:
+          - bdc_ui
+    depends_on:
+      - bdc-srv
+    #volumes:
+      #- "./bdc-ui/public:/app/public" 
+      #- "./bdc-ui/src:/app/src" 
+
+  bdc-srv:
+    image: dtr.research.ge.com/blade_digital_certificate/bdc-srv:latest
+    build: 
+      context: ./bdc-srv
+      dockerfile: Dockerfile.aws
+    environment:
+      # - https_proxy=${HTTPS_PROXY}
+      # - http_proxy=${HTTP_PROXY}
+      # - no_proxy=${NO_PROXY} # from .env file
+      #- SERVER_HOSTNAME=vrn1masda.crd.ge.com
+      - DATABASE_HOSTNAME=10.202.252.71
+      - DATABASE_USERNAME=bdc
+      - DATABASE_PASSWORD=bdc
+      - DATABASE_PORT=5436
+      - SAVE_FILES_TO_DB=True
+    ports:
+      - "8090:88"
+      - "5679:5679" # debug port
+    # dns:
+    #   - 1.1.1.1
+    #   - 1.0.0.1
+    restart: always
+    networks:
+      bdc_network:
+        aliases:
+          - bdc_srv
+    depends_on:
+      - bdc-db
+    #volumes:
+      #- "./bdc-srv/src:/app/src"
+
+  bdc-db:
+    image: dtr.research.ge.com/blade_digital_certificate/bdc-db:latest
+    build: ./bdc-db
+    ports:
+      - "5436:5436"  # network_mode:host
+    restart: always
+    networks:
+      bdc_network:
+        aliases:
+          - bdc_db
+    environment:
+      POSTGRES_USER: "bdc"
+      POSTGRES_PASSWORD: "bdc"
+      POSTGRES_DB: "bdc"
+    volumes:
+      - "db_data:/var/lib/postgresql/data" 
+    command: -p 5436
+
+# data volumes
+volumes:
+  db_data: {}
+  #jenkins_home: {}
+

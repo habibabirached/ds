@@ -1,0 +1,5 @@
+{
+    "s3Bucket": "renewables-uai3031357-dna-ds-dev",
+    "s3BucketDirectory": "blade_digital_certificate/database/",
+    "kmsKeyName": "arn:aws:kms:us-east-1:164506192075:key/9b480dc5-573b-43cc-bc74-18f63f1fda60"
+}

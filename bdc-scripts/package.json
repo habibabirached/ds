@@ -1,0 +1,15 @@
+{
+  "name": "bdc-scripts",
+  "version": "1.0.0",
+  "description": "Scripts to import data into the system",
+  "main": "app.js",
+  "scripts": {
+    "test": "node src/app"
+  },
+  "author": "Roberto Silva Filho",
+  "license": "ISC",
+  "dependencies": {
+    "bottleneck": "^2.19.5",
+    "jsonrepair": "^3.5.1"
+  }
+}

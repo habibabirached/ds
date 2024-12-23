@@ -1,0 +1,2 @@
+#!/bin/sh
+docker build --build-arg HTTP_PROXY=http://PITC-Zscaler-Americas-Cincinnati3PR.proxy.corporate.ge.com:80 --build-arg HTTPS_PROXY=http://PITC-Zscaler-Americas-Cincinnati3PR.proxy.corporate.ge.com:80 -t borescope-s3-access:latest .

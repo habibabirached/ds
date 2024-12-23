@@ -1,0 +1,117 @@
+
+
+# virtual networks
+networks:
+  bdc_network:    
+    driver: bridge
+
+services:
+
+  # We do this to extend jenkins/jenkis:lts with more packages e.g. certificates
+  # Also remember to STOP MyAppsAnywhere3 so Jenkins can access https sites without proxy
+  # Also change the jenkins plugin repo url to use http instead of https
+  # install skip-certificate-check plugin
+
+  bdc-ui:
+    image: dtr.research.ge.com/blade_digital_certificate/bdc-ui:latest
+    #build: ./bdc-ui
+    environment:
+      - https_proxy=${HTTPS_PROXY}
+      - http_proxy=${HTTP_PROXY}
+      - no_proxy=${NO_PROXY} # from .env file
+      - DATABASE_HOSTNAME=bdc_db
+      - DATABASE_USERNAME=bdc
+      - DATABASE_PASSWORD=bdc
+      - DATABASE_PORT=5436
+      - SERVER_HOSTNAME=host.docker.internal
+    ports:
+      - "8080:3000" #host:container
+    restart: always
+    networks:
+      bdc_network:
+        aliases:
+          - bdc_ui
+    ulimits: # Fix for podman compose running out of file descriptors
+      nproc: 65535
+      nofile: 
+        soft: 20000
+        hard: 40000
+    depends_on:
+      - bdc-srv
+    #volumes:
+    #  - "./bdc-ui/src:/app/src"
+    #  - "./bdc-ui/public:/app/public"
+
+  bdc-srv:
+    image: dtr.research.ge.com/blade_digital_certificate/bdc-srv:latest
+    #build: ./bdc-srv
+    environment:
+      - https_proxy=${HTTPS_PROXY}
+      - http_proxy=${HTTP_PROXY}
+      - no_proxy=${NO_PROXY} # from .env file
+      - SAVE_FILES_TO_DB=True
+    ports:
+      - "8090:88"
+      - "5679:5679" # debug port
+    restart: always
+    networks:
+      bdc_network:
+        aliases:
+          - bdc_srv
+    depends_on:
+      - bdc-db
+    #volumes:
+    #  - "./bdc-srv:/app"
+
+  bdc-db:
+    image: postgres:15-alpine
+    #build: ./bdc-db
+    ports:
+      - "5436:5436"  # network_mode:host
+    restart: always
+    networks:
+      bdc_network:
+        aliases:
+          - bdc_db
+    environment:
+      POSTGRES_USER: "bdc"
+      POSTGRES_PASSWORD: "bdc"
+      POSTGRES_DB: "bdc"
+    volumes:
+      - "db_data:/var/lib/postgresql/data" 
+    command: -p 5436
+
+  backup_db:
+    # In production, it is advised to lock your image tag to a proper
+    # release version instead of using `latest`.
+    # Check https://github.com/offen/docker-volume-backup/releases
+    # for a list of available releases.
+    image: offen/docker-volume-backup:latest
+    restart: always
+    #env_file: ./backup.env # see below for configuration reference
+    environment:
+      BACKUP_CRON_EXPRESSION: "0 1 * * *" # 1AM every day
+      BACKUP_FILENAME: bladedigitalcertificate_db_data-%Y-%m-%dT%H-%M-%S.tar.gz
+      BACKUP_LATEST_SYMLINK: bladedigitalcertificate_db_data-latest.tar.gz
+      BACKUP_RETENTION_DAYS: 7
+    volumes:
+      - db_data:/backup/my-app-backup:ro
+      # Mounting the Docker socket allows the script to stop and restart
+      # the container during backup and to access the container labels to
+      # specify custom commands. You can omit this if you don't want to
+      # stop the container or run custom commands. In case you need to
+      # proxy the socket, you can also provide a location by setting
+      # `DOCKER_HOST` in the container
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # If you mount a local directory or volume to `/archive` a local
+      # copy of the backup will be stored there. You can override the
+      # location inside of the container by setting `BACKUP_ARCHIVE`.
+      # You can omit this if you do not want to keep local backups.
+      - ./local_backups:/archive
+
+
+# data volumes
+volumes:
+  db_data: {}
+  #jenkins_home: {}
+

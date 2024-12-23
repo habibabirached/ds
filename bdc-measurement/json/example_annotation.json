@@ -1,0 +1,32 @@
+{
+    "version": "5.2.1", 
+    "flags": {}, 
+    "shapes": 
+    [
+        {
+            "points": [[802, 488], [1159, 453], [1178, 483], [807, 521]], 
+            "group_id": null, 
+            "description": "", 
+            "shape_type": "polygon", 
+            "flags": {}, 
+            "label": "CoreGap"
+        }, 
+        {
+            "points": [[702, 488], [1150, 453], [1178, 483], [807, 521]], 
+            "group_id": null, 
+            "description": "", 
+            "shape_type": "polygon", 
+            "flags": {}, 
+            "label": "CoreGap"
+        }
+    ],
+    "imagePath": "image_1.png", 
+    "imageHeight": 1200, 
+    "imageWidth": 1600, 
+    "imageData": null, 
+    "imageYfov": 100, 
+    "imageHfov": 100, 
+    "imagePitch": -50, 
+    "imageYaw": 0
+}
+ 

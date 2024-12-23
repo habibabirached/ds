@@ -1,0 +1,5 @@
+{
+    "s3Bucket": "renewables-uai3062831-dbc-prod",
+    "s3BucketDirectory": "blade_digital_certificate/database/",
+    "kmsKeyName": "arn:aws:kms:us-east-1:180500816860:key/df3cbdb4-5fe7-4431-af82-d335edfe2163"
+}
